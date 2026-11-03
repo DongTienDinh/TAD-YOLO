@@ -2,8 +2,10 @@
 
 Run each notebook in a separate Kaggle session with **GPU enabled** and
 **Internet on**. Add the YOLO-formatted VisDrone dataset as the only Kaggle
-Input. The notebooks clone this repository, install the pinned environment,
-validate the dataset, run a model smoke test, and train one frozen variant.
+Input. The notebooks clone this repository, install the pinned runtime
+dependencies without installing the project package (compatible with Kaggle's
+Python 3.13 kernel), validate the dataset, run a model smoke test, and train
+one frozen variant directly from the checked-out source tree.
 
 Run order:
 
