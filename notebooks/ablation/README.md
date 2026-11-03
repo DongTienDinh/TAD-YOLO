@@ -7,6 +7,11 @@ dependencies without installing the project package (compatible with Kaggle's
 Python 3.13 kernel), validate the dataset, run a model smoke test, and train
 one frozen variant directly from the checked-out source tree.
 
+The dataset YAML shipped inside the Kaggle Input is not used directly because
+Kaggle may normalize the dataset slug (for example, `visdrone-det-yolo` to
+`visdrone_det_yolo`). Each notebook generates
+`/kaggle/working/visdrone_tad_yolo.yaml` from the actual mounted directory.
+
 Run order:
 
 1. `A0_YOLOv8n.ipynb`
