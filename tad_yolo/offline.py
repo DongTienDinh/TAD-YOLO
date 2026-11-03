@@ -127,9 +127,43 @@ def validate_dataset_yaml(path: str | Path, *, expected_classes: int = 10) -> di
     names = data.get("names")
     if not isinstance(names, (dict, list)) or len(names) != expected_classes:
         raise ValueError(f"Dataset must define exactly {expected_classes} class names")
-    root = Path(data.get("path", yaml_path.parent)).expanduser()
-    if not root.is_absolute():
-        root = (yaml_path.parent / root).resolve()
+    declared_root = Path(data.get("path", yaml_path.parent)).expanduser()
+    if not declared_root.is_absolute():
+        declared_root = (yaml_path.parent / declared_root).resolve()
+    else:
+        declared_root = declared_root.resolve()
+
+    # Kaggle can normalize an Input slug from hyphens to underscores while a
+    # YAML uploaded inside that Input still contains the original absolute
+    # path. Prefer the declared root when it is valid, otherwise accept the
+    # YAML's parent directory when it contains the declared train/val splits.
+    root_candidates = [declared_root]
+    if yaml_path.parent not in root_candidates:
+        root_candidates.append(yaml_path.parent)
+    kaggle_input = Path("/kaggle/input")
+    if kaggle_input.is_dir():
+        normalized_name = declared_root.name.lower().replace("-", "_")
+        root_candidates.extend(
+            candidate
+            for candidate in kaggle_input.iterdir()
+            if candidate.is_dir()
+            and candidate.name.lower().replace("-", "_") == normalized_name
+            and candidate not in root_candidates
+        )
+
+    def has_required_splits(candidate: Path) -> bool:
+        for split in ("train", "val"):
+            value = data.get(split)
+            if not isinstance(value, str) or not value:
+                return False
+            split_path = Path(value).expanduser()
+            if not split_path.is_absolute():
+                split_path = candidate / split_path
+            if not split_path.exists():
+                return False
+        return True
+
+    root = next((candidate.resolve() for candidate in root_candidates if has_required_splits(candidate)), declared_root)
     resolved: dict[str, Any] = {"yaml": str(yaml_path), "root": str(root), "classes": len(names)}
     for split in ("train", "val"):
         value = data.get(split)
@@ -149,7 +183,23 @@ def resolve_visdrone_dataset(explicit_yaml: str | Path | None = None) -> Path:
     """Use an explicit YAML or generate one for a mounted Kaggle VisDrone input."""
     if explicit_yaml is not None:
         path = Path(explicit_yaml).expanduser().resolve()
-        validate_dataset_yaml(path)
+        resolved = validate_dataset_yaml(path)
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        declared_root = Path(data.get("path", path.parent)).expanduser()
+        if not declared_root.is_absolute():
+            declared_root = (path.parent / declared_root).resolve()
+        else:
+            declared_root = declared_root.resolve()
+        actual_root = Path(resolved["root"])
+        if actual_root != declared_root and Path("/kaggle/working").is_dir():
+            runtime_yaml = Path("/kaggle/working/visdrone_tad_yolo.yaml")
+            runtime_data = dict(data)
+            runtime_data["path"] = str(actual_root)
+            runtime_yaml.write_text(
+                yaml.safe_dump(runtime_data, sort_keys=False), encoding="utf-8"
+            )
+            validate_dataset_yaml(runtime_yaml)
+            return runtime_yaml
         return path
     if not Path("/kaggle/input").is_dir():
         raise FileNotFoundError("Pass --dataset outside Kaggle")

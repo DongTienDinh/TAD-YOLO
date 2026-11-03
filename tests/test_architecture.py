@@ -1,14 +1,17 @@
 """Architecture-contract tests for the clean F4 implementation."""
 
 from pathlib import Path
+import tempfile
 import unittest
 
 import torch
 import torch.nn.functional as F
+import yaml
 
 from tad_yolo.config import _validate_architecture_contract, load_config
 from tad_yolo.models.detector import TADYOLODetector
 from tad_yolo.nn.upsampling import DySample
+from tad_yolo.offline import validate_dataset_yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -74,6 +77,26 @@ class ArchitectureContractTests(unittest.TestCase):
         config["model"]["has_d5"] = True
         with self.assertRaisesRegex(ValueError, "fixed F4"):
             _validate_architecture_contract(config)
+
+    def test_dataset_yaml_falls_back_to_its_mounted_parent(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "VisDrone2019-DET-train/images").mkdir(parents=True)
+            (root / "VisDrone2019-DET-val/images").mkdir(parents=True)
+            dataset_yaml = root / "visdrone_kaggle.yaml"
+            dataset_yaml.write_text(
+                yaml.safe_dump(
+                    {
+                        "path": "/kaggle/input/visdrone-det-yolo",
+                        "train": "VisDrone2019-DET-train/images",
+                        "val": "VisDrone2019-DET-val/images",
+                        "names": {index: str(index) for index in range(10)},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            resolved = validate_dataset_yaml(dataset_yaml)
+            self.assertEqual(Path(resolved["root"]), root.resolve())
 
 
 if __name__ == "__main__":
