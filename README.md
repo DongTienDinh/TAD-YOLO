@@ -120,6 +120,23 @@ python scripts/predict.py \
 
 Validation writes `evaluation.json` to its run directory.
 
+## Kaggle ablation study (Internet on)
+
+Six single-T4 notebooks are provided in [`notebooks/ablation/`](notebooks/ablation/README.md).
+They implement the cumulative sequence YOLOv8n, +P2, +shallow-heavy,
++terminal P2, -D5, and +DySample (TAD-YOLO). Every run uses the shared
+300-epoch SGD protocol and trains from scratch. The same runner can be invoked
+without a notebook:
+
+```bash
+python scripts/train_ablation.py \
+  --variant a5_tad_yolo --dataset /path/to/visdrone_kaggle.yaml \
+  --device 0 --epochs 300 --batch 8 --precision fp16
+```
+
+Available keys and graph contracts are documented in
+[`configs/ablations/README.md`](configs/ablations/README.md).
+
 ## Offline Kaggle workflow
 
 The pinned environment contract is

@@ -1,0 +1,29 @@
+# A4: A3 - D5. Detection strides are 4, 8 and 16.
+nc: 10
+
+backbone:
+  - [-1, 1, Conv, [24, 3, 2]]
+  - [-1, 1, Conv, [48, 3, 2]]
+  - [-1, 1, C2f, [48, true]]
+  - [-1, 1, Conv, [64, 3, 2]]
+  - [-1, 2, C2f, [64, true]]
+  - [-1, 1, Conv, [96, 3, 2]]
+  - [-1, 2, C2f, [96, true]]
+  - [-1, 1, Conv, [128, 3, 2]]
+  - [-1, 1, C2f, [128, true]]
+  - [-1, 1, SPPF, [128, 5]]
+
+head:
+  - [-1, 1, nn.Upsample, [null, 2, nearest]]
+  - [[-1, 6], 1, Concat, [1]]
+  - [-1, 1, C2f, [96]]
+  - [-1, 1, nn.Upsample, [null, 2, nearest]]
+  - [[-1, 4], 1, Concat, [1]]
+  - [-1, 1, C2f, [64]]
+  - [-1, 1, nn.Upsample, [null, 2, nearest]]
+  - [[-1, 2], 1, Concat, [1]]
+  - [-1, 1, C2f, [48]]
+  - [15, 1, Conv, [96, 3, 2]]
+  - [[-1, 12], 1, Concat, [1]]
+  - [-1, 1, C2f, [96]]
+  - [[18, 15, 21], 1, Detect, [nc]]
