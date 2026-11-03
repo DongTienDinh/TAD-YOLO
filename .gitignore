@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+runs/
+*.pt
+*.pth
+*.onnx
+*.engine
+kaggle_upload/tad-yolo-wheelhouse/
+*.zip
+*.rar
+*.tar.gz
+*.7z
+

@@ -1,0 +1,80 @@
+"""Architecture-contract tests for the clean F4 implementation."""
+
+from pathlib import Path
+import unittest
+
+import torch
+import torch.nn.functional as F
+
+from tad_yolo.config import _validate_architecture_contract, load_config
+from tad_yolo.models.detector import TADYOLODetector
+from tad_yolo.nn.upsampling import DySample
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CONFIG = ROOT / "configs/tad_yolov8n_f4.yaml"
+
+
+def build_model() -> TADYOLODetector:
+    return TADYOLODetector.from_config(load_config(CONFIG))
+
+
+class ArchitectureContractTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        torch.set_num_threads(2)
+
+    def test_fixed_f4_structure(self) -> None:
+        model = build_model()
+        self.assertEqual(model.model_name, "TAD-YOLO-F4")
+        self.assertEqual(model.strides, (4.0, 8.0, 16.0))
+        self.assertEqual(model.head_channels, (48, 64, 96))
+        self.assertIsInstance(model.neck.t4_to_t3_upsample, DySample)
+        self.assertIsInstance(model.neck.t3_to_t2_upsample, DySample)
+        self.assertFalse(hasattr(model.neck, "t2_to_n3_downsample"))
+        self.assertFalse(hasattr(model.neck, "n4_to_n5_downsample"))
+
+    def test_feature_shapes(self) -> None:
+        model = build_model().eval()
+        for height, width in ((64, 64), (64, 96), (96, 128)):
+            with self.subTest(height=height, width=width), torch.no_grad():
+                features = model.forward_features(torch.randn(1, 3, height, width))
+                expected = (
+                    (1, 48, height // 4, width // 4),
+                    (1, 64, height // 8, width // 8),
+                    (1, 96, height // 16, width // 16),
+                )
+                self.assertEqual(tuple(tuple(feature.shape) for feature in features), expected)
+
+    def test_zero_offset_dysample_matches_bilinear_resize(self) -> None:
+        upsample = DySample(in_channels=8, scale=2, groups=4, offset_init_std=0.0).eval()
+        x = torch.randn(1, 8, 7, 11)
+        with torch.no_grad():
+            actual = upsample(x)
+            expected = F.interpolate(x, scale_factor=2, mode="bilinear", align_corners=False)
+        self.assertTrue(torch.allclose(actual, expected, atol=1e-5, rtol=1e-5))
+
+    def test_loss_and_backward_are_finite(self) -> None:
+        model = build_model().train()
+        batch = {
+            "img": torch.rand(1, 3, 64, 64),
+            "batch_idx": torch.tensor([0]),
+            "cls": torch.tensor([[0.0]]),
+            "bboxes": torch.tensor([[0.5, 0.5, 0.2, 0.2]]),
+        }
+        loss, _ = model(batch)
+        self.assertTrue(torch.isfinite(loss).all())
+        loss.sum().backward()
+        gradients = [parameter.grad for parameter in model.parameters() if parameter.grad is not None]
+        self.assertTrue(gradients)
+        self.assertTrue(all(torch.isfinite(gradient).all() for gradient in gradients))
+
+    def test_config_rejects_non_f4_topology(self) -> None:
+        config = load_config(CONFIG)
+        config["model"]["has_d5"] = True
+        with self.assertRaisesRegex(ValueError, "fixed F4"):
+            _validate_architecture_contract(config)
+
+
+if __name__ == "__main__":
+    unittest.main()

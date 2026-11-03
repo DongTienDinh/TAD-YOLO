@@ -1,0 +1,17 @@
+# Replace this path or pass another dataset YAML with --dataset.
+path: /absolute/path/to/VisDrone2019-DET-YOLO
+train: train/images
+val: val/images
+test: test/images
+
+names:
+  0: pedestrian
+  1: people
+  2: bicycle
+  3: car
+  4: van
+  5: truck
+  6: tricycle
+  7: awning-tricycle
+  8: bus
+  9: motor

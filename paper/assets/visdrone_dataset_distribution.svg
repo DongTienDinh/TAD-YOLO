@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="650" viewBox="0 0 1600 650">
+  <rect width="1600" height="650" fill="#ffffff"/>
+  <style>
+    text { font-family: Arial, Helvetica, sans-serif; fill: #203040; }
+    .title { font-size: 27px; font-weight: 700; }
+    .axis { font-size: 18px; }
+    .label { font-size: 17px; }
+    .value { font-size: 16px; font-weight: 600; }
+    .grid { stroke: #dfe7ef; stroke-width: 1.5; }
+    .axis-line { stroke: #516273; stroke-width: 2; }
+  </style>
+
+  <!-- Panel (a): class counts -->
+  <text x="520" y="42" text-anchor="middle" class="title">(a) Class distribution</text>
+  <line x1="90" y1="480" x2="980" y2="480" class="axis-line"/>
+  <line x1="90" y1="80" x2="90" y2="480" class="axis-line"/>
+
+  <line x1="90" y1="480" x2="980" y2="480" class="grid"/>
+  <line x1="90" y1="346.7" x2="980" y2="346.7" class="grid"/>
+  <line x1="90" y1="213.3" x2="980" y2="213.3" class="grid"/>
+  <line x1="90" y1="80" x2="980" y2="80" class="grid"/>
+  <text x="75" y="486" text-anchor="end" class="axis">0</text>
+  <text x="75" y="352.7" text-anchor="end" class="axis">50</text>
+  <text x="75" y="219.3" text-anchor="end" class="axis">100</text>
+  <text x="75" y="86" text-anchor="end" class="axis">150</text>
+  <text x="25" y="280" text-anchor="middle" class="axis" transform="rotate(-90 25 280)">Instances (thousands)</text>
+
+  <g fill="#2f80c9">
+    <rect x="110" y="268.4" width="58" height="211.6" rx="3"/>
+    <rect x="195" y="407.9" width="58" height="72.1" rx="3"/>
+    <rect x="280" y="452.1" width="58" height="27.9" rx="3"/>
+    <rect x="365" y="93.7" width="58" height="386.3" rx="3"/>
+    <rect x="450" y="413.5" width="58" height="66.5" rx="3"/>
+    <rect x="535" y="445.7" width="58" height="34.3" rx="3"/>
+    <rect x="620" y="467.2" width="58" height="12.8" rx="3"/>
+    <rect x="705" y="471.3" width="58" height="8.7" rx="3"/>
+    <rect x="790" y="461.5" width="58" height="18.5" rx="3"/>
+    <rect x="875" y="401.0" width="58" height="79.0" rx="3"/>
+  </g>
+
+  <g text-anchor="middle" class="value">
+    <text x="139" y="258">79.3k</text>
+    <text x="224" y="397">27.1k</text>
+    <text x="309" y="441">10.5k</text>
+    <text x="394" y="83">144.9k</text>
+    <text x="479" y="403">25.0k</text>
+    <text x="564" y="435">12.9k</text>
+    <text x="649" y="456">4.8k</text>
+    <text x="734" y="460">3.2k</text>
+    <text x="819" y="450">6.9k</text>
+    <text x="904" y="390">29.6k</text>
+  </g>
+
+  <g class="label" text-anchor="end">
+    <text x="143" y="510" transform="rotate(-38 143 510)">Pedestrian</text>
+    <text x="228" y="510" transform="rotate(-38 228 510)">People</text>
+    <text x="313" y="510" transform="rotate(-38 313 510)">Bicycle</text>
+    <text x="398" y="510" transform="rotate(-38 398 510)">Car</text>
+    <text x="483" y="510" transform="rotate(-38 483 510)">Van</text>
+    <text x="568" y="510" transform="rotate(-38 568 510)">Truck</text>
+    <text x="653" y="510" transform="rotate(-38 653 510)">Tricycle</text>
+    <text x="738" y="510" transform="rotate(-38 738 510)">Awning-tricycle</text>
+    <text x="823" y="510" transform="rotate(-38 823 510)">Bus</text>
+    <text x="908" y="510" transform="rotate(-38 908 510)">Motor</text>
+  </g>
+
+  <!-- Panel (b): COCO-style scale proportions. -->
+  <text x="1290" y="42" text-anchor="middle" class="title">(b) Object-scale distribution</text>
+  <path d="M 1290 255 L 1290 105 A 150 150 0 1 1 1198.14 373.55 Z"
+        fill="#2f80c9" stroke="#ffffff" stroke-width="2"/>
+  <path d="M 1290 255 L 1198.14 373.55 A 150 150 0 0 1 1238.83 114.01 Z"
+        fill="#3b9b72" stroke="#ffffff" stroke-width="2"/>
+  <path d="M 1290 255 L 1238.83 114.01 A 150 150 0 0 1 1290 105 Z"
+        fill="#f2a93b" stroke="#ffffff" stroke-width="2"/>
+  <circle cx="1290" cy="255" r="150" fill="none" stroke="#ffffff" stroke-width="2"/>
+
+  <g class="label">
+    <rect x="1080" y="445" width="24" height="24" rx="2" fill="#2f80c9"/>
+    <text x="1118" y="464">Small (area below 32 x 32 px): 60.49%</text>
+    <rect x="1080" y="487" width="24" height="24" rx="2" fill="#3b9b72"/>
+    <text x="1118" y="506">Medium (32 x 32 to below 96 x 96 px): 33.97%</text>
+    <rect x="1080" y="529" width="24" height="24" rx="2" fill="#f2a93b"/>
+    <text x="1118" y="548">Large (area at least 96 x 96 px): 5.53%</text>
+  </g>
+</svg>

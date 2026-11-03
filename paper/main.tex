@@ -1,0 +1,423 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage[T5]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{cite}
+\usepackage{graphicx}
+\usepackage{svg}
+\usepackage{url}
+
+\title{TAD-YOLO: A Tiny-Aware Dynamic Feature Pyramid Network for UAV Object Detection}
+
+\author{\IEEEauthorblockN{1\textsuperscript{st} Dinh Dong Tien}
+\IEEEauthorblockA{\textit{Faculty of Information Technology} \\
+\textit{FPT University}\\
+Ho Chi Minh City, Viet Nam}
+\and
+\IEEEauthorblockN{2\textsuperscript{nd} Le Dang Thai An}
+\IEEEauthorblockA{\textit{Faculty of Information Technology} \\
+\textit{FPT University}\\
+Ho Chi Minh City, Viet Nam}
+\and
+\IEEEauthorblockN{3\textsuperscript{rd} Phan Anh Tai}
+\IEEEauthorblockA{\textit{Faculty of Information Technology} \\
+\textit{FPT University}\\
+Ho Chi Minh City, Viet Nam}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Small-object detection in unmanned aerial vehicle (UAV) imagery is difficult
+because targets occupy few pixels, appear densely, and compete with complex
+backgrounds.  This paper presents Tiny-Aware Dynamic YOLO (TAD-YOLO), a
+compact feature-pyramid detector built on YOLOv8n and inspired by the
+shallow-oriented backbone redesign and
+Tiny-focused Feature Pyramid Network (TFPN) of UAVDet.  TAD-YOLO redistributes
+channel capacity toward high-resolution stages, replaces the stride-32
+prediction branch with a stride-4 branch, makes the P2 output terminal, and
+uses DySample in two top-down transitions.  The evaluated configuration has
+1.290M parameters, requires 15.78 GFLOPs at $640\times640$, and predicts at
+strides 4, 8, and 16.  A preliminary single-seed ablation on
+VisDrone2019-DET shows that TAD-YOLO improves AP$_{50}$ from 31.64\% to
+39.30\% and AP$_{50:95}$ from 17.42\% to 22.50\%, while reducing parameters
+by 57.2\% relative to YOLOv8n.  DySample contributes +2.12 AP$_{50}$ and
++1.60 AP$_{50:95}$ over the preceding no-D5 configuration.  The results
+identify P2, shallow-heavy allocation, and content-aware upsampling as the
+main accuracy contributors.  Terminal P2 primarily reduces computation,
+whereas D5 removal reduces both parameters and computation.
+\end{abstract}
+
+\begin{IEEEkeywords}
+UAV object detection, small objects, YOLOv8, feature pyramid, P2 detection,
+DySample, VisDrone.
+\end{IEEEkeywords}
+
+\section{Introduction}
+Object detection from UAV platforms supports traffic monitoring, public
+safety, search and rescue, and infrastructure inspection.  In contrast to
+ground-level imagery, an aerial frame commonly contains many targets that are
+only a few pixels wide.  Repeated spatial downsampling can erase these targets
+before they reach a detection head, while background texture and severe class
+imbalance increase false positives and missed detections.  The
+VisDrone2019-DET benchmark makes these difficulties explicit through diverse
+viewpoints, altitudes, illumination conditions, and ten traffic-related object
+categories~\cite{du2019visdrone}.
+
+YOLOv8 was selected because its implementation is strongly modular: the
+backbone, C2f blocks, SPPF module, neck operations, and anchor-free decoupled
+detection head are exposed as separable components~\cite{jocher2023yolov8}.
+This organization permits controlled replacement of channel schedules,
+upsampling operators, and prediction levels without redesigning the complete
+training and inference pipeline.  The Ultralytics framework also provides a
+consistent loss, augmentation, validation, checkpoint, and export interface,
+which reduces implementation differences between ablations.
+
+The nano variant, YOLOv8n, was chosen rather than a larger scale for two
+reasons.  First, UAV deployment is constrained by memory, power, and latency;
+a compact starting point leaves a practical budget for the expensive
+high-resolution P2 branch.  Second, a lightweight baseline makes the
+accuracy--complexity effect of each architectural change easier to observe
+instead of hiding it inside excess model capacity.  The standard nano
+configuration nevertheless allocates increasing width to deep,
+low-resolution stages and predicts at strides 8, 16, and 32.  This allocation
+is reasonable for general-purpose detection but may be suboptimal for the
+small-object-dominated scale distribution of UAV imagery.  Retaining
+high-resolution features is a direct remedy, although their cost grows
+quadratically with spatial resolution~\cite{yang2022querydet}.
+
+UAVDet addresses the same mismatch by redesigning stage depth and width and by
+introducing TFPN, which replaces a large-object head with a tiny-object head
+while rebalancing feature flow~\cite{yang2026uavdet}.  TAD-YOLO transfers these
+principles to a different detector family: it retains the YOLOv8-style
+C2f/SPPF/Detect components and does not adopt UAVDet's CSPMB or Mamba modules.
+The design further introduces DySample, a point-sampling-based dynamic
+upsampler~\cite{liu2023dysample}, to preserve content-dependent details during
+top-down fusion.
+
+The main contributions are as follows:
+\begin{itemize}
+    \item We adapt UAVDet's shallow-oriented allocation and tiny-focused
+    pyramid principle to YOLOv8n through a $24/48/64/96/128$ channel schedule
+    and prediction strides $\{4,8,16\}$.
+    \item We formulate a terminal P2 branch: the stride-4 feature is sent
+    directly to detection and is not downsampled back into the bottom-up path.
+    The stride-32 D5 branch is removed.
+    \item We place lightweight DySample operators in the T4-to-T3 and
+    T3-to-T2 transitions while retaining nearest-neighbor interpolation for
+    B5-to-T4.
+    \item We conduct a component-wise preliminary ablation and explicitly
+    separate measured accuracy gains from efficiency-oriented design choices.
+\end{itemize}
+
+\section{Related Work}
+\subsection{Multi-scale Feature Aggregation}
+Feature Pyramid Networks (FPN) introduced a top-down pathway with lateral
+connections to construct semantically strong features at multiple
+resolutions~\cite{lin2017fpn}.  PANet subsequently added a bottom-up path to
+shorten the information route from localization-rich shallow features to deep
+features~\cite{liu2018panet}.  These two ideas underlie many modern detector
+necks.  TAD-YOLO retains top-down fusion but deliberately shortens bottom-up
+aggregation: only the T3-to-N4 route remains.  FPN and PANet provide the
+general aggregation foundation; they are not claimed as the direct source of
+the terminal-P2 or no-D5 decisions.
+
+High-resolution representations are particularly important for small
+objects.  QueryDet shows that such maps improve small-object detection but
+also exposes their computational cost, motivating sparse computation at
+selected locations~\cite{yang2022querydet}.  TAD-YOLO takes a complementary
+architectural approach.  It uses a dense P2 prediction map but compensates by
+narrowing the deep stages and removing D5.
+
+\subsection{YOLOv8 and Partial Feature Reuse}
+The implementation is based on YOLOv8n~\cite{jocher2023yolov8}.  Beyond its
+small parameter budget, YOLOv8n provides clean module boundaries between its
+backbone, neck, and detection head.  This modularity is central to the
+experimental design: the same C2f, SPPF, Detect, loss, and data pipeline are
+retained while feature widths, pyramid routes, and upsampling operators are
+changed.  Consequently, differences between configurations are easier to
+attribute to the proposed topology rather than to a replacement detector.
+
+The C2f blocks are conceptually related to cross-stage partial feature reuse.
+CSPNet showed that separating and later merging feature paths can reduce
+duplicated gradient information and computation~\cite{wang2020cspnet}.
+Nevertheless, C2f is a specific Ultralytics design and should not be described
+as a block proposed by CSPNet.
+
+\subsection{UAV-Specific Small-Object Detection}
+UAVDet is the central architectural inspiration for TAD-YOLO.  It combines a
+redesigned CNN hierarchy, CSPMB/Mamba global--local modeling, and TFPN.  On
+VisDrone, UAVDet reports improved AP and AP$_S$ with substantially fewer
+parameters than its RTMDet-m baseline~\cite{yang2026uavdet}.  The inheritance
+boundary is important: TAD-YOLO adopts the principles of shallow-oriented
+capacity and replacing a large-object branch with a tiny-object branch, but it
+does not copy the RTMDet-m backbone, CSPNeXt stages, CSPMB blocks, or Mamba
+operators.  Its terminal P2 path is a project-specific realization of the
+tiny-focused feature-flow principle.
+
+SMA-YOLO provides a closely related YOLOv8n-based design point: it introduces
+a $160\times160$ small-object head and removes the large-object prediction
+branch~\cite{zhou2025smayolo}.  TAD-YOLO shares this small-scale emphasis but
+is distinguished by shallow-heavy channel redistribution, a terminal P2
+route, and DySample-based top-down refinement.  This comparison places the
+proposed topology among existing tiny-object-oriented YOLO designs without
+claiming that P2 or large-head removal is unique to TAD-YOLO.
+
+\subsection{Content-Aware Upsampling}
+Fixed nearest-neighbor interpolation is inexpensive but cannot adapt sampling
+locations to local structure.  DySample reformulates upsampling as learned
+point sampling and avoids dynamic convolution and custom CUDA
+kernels~\cite{liu2023dysample}.  This combination is attractive because the
+two high-resolution top-down transitions must preserve boundaries without a
+large kernel-generation network.
+
+\section{Methodology}
+\subsection{Architecture Overview}
+Let an RGB image be
+$\mathbf{I}\in\mathbb{R}^{3\times H\times W}$, with $H$ and $W$ divisible by
+32.  The backbone produces four lateral features
+\begin{equation}
+\mathbf{B}_i\in\mathbb{R}^{C_i\times H/2^i\times W/2^i},\quad
+i\in\{2,3,4,5\},
+\end{equation}
+where $(C_2,C_3,C_4,C_5)=(48,64,96,128)$.  A 24-channel stride-2 stem precedes
+these stages.  Their C2f repeat counts are $(1,2,2,1)$, and the B5 stage ends
+with SPPF.  Compared with the conventional increasing-width pattern, this
+schedule limits deep-stage width while retaining more relative capacity at
+high resolution.
+
+Figure~\ref{fig:architecture} summarizes the resulting backbone, top-down
+fusion, terminal P2 output, and shortened bottom-up path.
+
+\begin{figure*}[t]
+\centering
+\includesvg[width=\textwidth,inkscapelatex=false]{assets/tad_yolo_architecture}
+\caption{TAD-YOLO architecture.  The shallow-heavy backbone feeds a
+terminal-P2 multi-scale neck with DySample in the T4-to-T3 and T3-to-T2
+transitions.  T2 is used directly by the stride-4 head and is excluded from
+bottom-up aggregation; the detector predicts at strides 4, 8, and 16 without
+a D5 branch.}
+\label{fig:architecture}
+\end{figure*}
+
+For a $640\times640$ input, the data flow is
+\begin{align}
+\mathbf{T}_4 &= \mathrm{C2f}\!\left(
+    U_{\mathrm{NN}}(\mathbf{B}_5)\oplus\mathbf{B}_4\right), \\
+\mathbf{T}_3 &= \mathrm{C2f}\!\left(
+    U_{\mathrm{Dy}}(\mathbf{T}_4)\oplus\mathbf{B}_3\right), \\
+\mathbf{T}_2 &= \mathrm{C2f}\!\left(
+    U_{\mathrm{Dy}}(\mathbf{T}_3)\oplus\mathbf{B}_2\right), \\
+\mathbf{N}_4 &= \mathrm{C2f}\!\left(
+    \mathrm{Conv}_{3\times3,s=2}(\mathbf{T}_3)\oplus\mathbf{T}_4\right).
+\end{align}
+Here $\oplus$ denotes channelwise concatenation, $U_{\mathrm{NN}}$ denotes
+fixed $2\times$ nearest-neighbor upsampling, and $U_{\mathrm{Dy}}$ denotes
+$2\times$ DySample~\cite{liu2023dysample}.  Detection is performed on
+\begin{equation}
+\mathcal{D}=\mathrm{Detect}\!\left(
+\{\mathbf{T}_2,\mathbf{T}_3,\mathbf{N}_4\}\right),
+\end{equation}
+where braces denote the list of multi-scale inputs rather than a spatial or
+channel concatenation.  Their strides are $(4,8,16)$ and channel counts are
+$(48,64,96)$.
+
+Table~\ref{tab:feature_contract} lists the corresponding feature dimensions
+and routing roles.
+
+\begin{table}[t]
+\caption{Feature contract for a $640\times640$ input.}
+\label{tab:feature_contract}
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+Feature & Channels & Resolution & Role \\
+\midrule
+B2 & 48  & $160\times160$ & shallow lateral \\
+B3 & 64  & $80\times80$   & lateral \\
+B4 & 96  & $40\times40$   & lateral \\
+B5 & 128 & $20\times20$   & SPPF output \\
+T2/D2 & 48 & $160\times160$ & terminal prediction \\
+T3/D3 & 64 & $80\times80$ & prediction/route \\
+N4/D4 & 96 & $40\times40$ & prediction \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Terminal P2 and Removal of D5}
+A standard bottom-up pyramid can downsample P2 into an N3 path and eventually
+reach N5.  TAD-YOLO instead defines
+\begin{equation}
+\mathbf{T}_2\rightarrow\mathbf{D}_2,
+\qquad
+\mathbf{T}_2\nrightarrow\mathbf{N}_3.
+\end{equation}
+This terminal branch prevents the expensive $160\times160$ feature from being
+reprocessed in the bottom-up path, while the stride-32 D5 head is removed.
+For a $640\times640$ input, D2 contains $64\times$ as many spatial locations
+as D5 ($160^2$ versus $20^2$).  The design therefore shifts prediction toward
+high-resolution features.  It follows UAVDet's TFPN principle of replacing
+large-object emphasis with tiny-object emphasis, whereas the terminal-P2
+implementation is specific to TAD-YOLO.
+
+\subsection{DySample Top-Down Refinement}
+For each top-down input $\mathbf{X}$, DySample~\cite{liu2023dysample}
+predicts grouped offsets
+$\Delta\mathbf{p}$ and samples around an initial regular grid
+$\mathbf{p}_0$.  In simplified form,
+\begin{equation}
+\mathbf{Y}(\mathbf{q})=
+\mathrm{grid\_sample}\!\left(
+\mathbf{X},\mathbf{p}_0(\mathbf{q})+\alpha\Delta\mathbf{p}(\mathbf{q})
+\right),
+\end{equation}
+where the implementation uses scale 2, four channel groups, ``lp'' style,
+$\alpha=0.25$, bilinear sampling, border padding, and
+\texttt{align\_corners=false}.  Sampling is calculated in FP32 for numerical
+stability.  DySample is used only from T4 to T3 and from T3 to T2; the
+B5-to-T4 transition remains nearest-neighbor interpolation.
+
+\subsection{Training Objective}
+The detector uses the YOLOv8 detection objective~\cite{jocher2023yolov8},
+including distribution focal loss (DFL) for box
+regression~\cite{li2020gfl}:
+\begin{equation}
+\mathcal{L}=\lambda_{box}\mathcal{L}_{box}
++\lambda_{cls}\mathcal{L}_{cls}
++\lambda_{dfl}\mathcal{L}_{dfl},
+\end{equation}
+with $(\lambda_{box},\lambda_{cls},\lambda_{dfl})=(7.5,0.5,1.5)$.
+The GFL citation identifies the origin of DFL; TAD-YOLO does not claim to
+adopt the complete GFL or Quality Focal Loss objective.
+
+\section{Experiments and Results}
+\subsection{Dataset and Exploratory Analysis}
+The VisDrone2019-DET train, validation, and test-dev splits comprise 8,629
+images: 6,471 training, 548 validation, and 1,610 test-dev images, with ten
+annotated categories~\cite{du2019visdrone}.
+The converted training labels contain 344,201 instances and exhibit a
+substantial long-tail distribution.  Cars
+account for 42.1\% of instances and pedestrians for 23.0\%; together they form
+65.1\% of all annotations.  Cars are approximately 45 times more frequent
+than awning-tricycles.  Under the COCO area
+thresholds, a published audit of VisDrone reports 60.49\% small objects
+($a<32^2$), 33.97\% medium objects ($32^2\leq a<96^2$), and 5.53\% large
+objects ($a\geq96^2$), where $a$ is the box area in square
+pixels~\cite{zhou2025smayolo}.
+Figure~\ref{fig:dataset_distribution} summarizes both distributions.  These
+observations motivate high-resolution detection and cautious interpretation
+of aggregate AP, which can hide rare-class failure modes.
+
+\begin{figure*}[t]
+\centering
+\includesvg[width=\textwidth,inkscapelatex=false]{assets/visdrone_dataset_distribution}
+\caption{VisDrone dataset statistics.  The bar chart shows class counts in
+344,201 converted training labels; the pie chart reports the published
+COCO-style object-scale proportions~\cite{zhou2025smayolo}.}
+\label{fig:dataset_distribution}
+\end{figure*}
+
+\subsection{Experimental Protocol}
+All recorded runs use $640\times640$ letterboxed RGB inputs and the official
+training/validation split.  The common schedule is 150 epochs, batch size 16,
+the hybrid Muon--SGD optimizer (MuSGD), initial learning rate 0.01, final
+learning-rate factor 0.01, momentum 0.9, weight decay $5\times10^{-4}$, and
+three warm-up epochs.
+Augmentation includes HSV jitter, translation 0.1, scale 0.5, horizontal flip
+probability 0.5, and mosaic probability 1.0; mosaic is disabled for the final
+ten epochs.  The preliminary record uses seed 0 with deterministic mode enabled,
+BF16 precision, PyTorch 2.10.0, and Ultralytics 8.4.154.
+
+Per-class precision $P_c$ and recall $R_c$ are computed from true positives
+(TP), false positives (FP), and false negatives (FN):
+\begin{equation}
+P_c=\frac{\mathrm{TP}_c}{\mathrm{TP}_c+\mathrm{FP}_c},\qquad
+R_c=\frac{\mathrm{TP}_c}{\mathrm{TP}_c+\mathrm{FN}_c}.
+\end{equation}
+The reported $P$ and $R$ are class means.  AP$_{50}$ is mean AP across classes
+at IoU 0.50, while AP$_{50:95}$ additionally averages over IoU thresholds from
+0.50 to 0.95 in steps of 0.05, following the COCO-style
+protocol~\cite{lin2014coco}.  AP$_{50:95}$ is the checkpoint-selection metric
+because it is more sensitive to localization quality.
+
+Parameter counts refer to trainable detector parameters.  GFLOPs are profiled
+at batch size one and $640\times640$ in FP32 using $2\times$ MACs, excluding
+NMS.  Functional sampling operators may be incompletely counted by THOP, so
+these figures should be interpreted as architecture profiles rather than
+hardware latency.
+
+\subsection{Preliminary Ablation Results}
+Table~\ref{tab:ablation} reports a sequential, single-seed ablation in which
+each row explicitly names all accumulated modifications.  Adding a P2 head to
+YOLOv8n produces the largest isolated gain: +4.23 AP$_{50}$ and +2.96
+AP$_{50:95}$.  Adding the shallow-heavy channel schedule contributes another
++2.35 and +1.36 points, respectively, while reducing parameters from 2.928M
+to 1.633M.  These changes support the hypothesis that high-resolution
+capacity is valuable on VisDrone.
+
+The results also contradict an overly simple claim that every proposed change
+is independently beneficial.  Relative to YOLOv8n + P2 + shallow-heavy,
+terminal P2 loses 0.58 AP$_{50}$ and 0.31 AP$_{50:95}$; removing D5 loses a
+further 0.46 and 0.53 points.  Their value is primarily efficiency: the full
+no-D5 predecessor retains a +5.54/+3.48 point advantage over YOLOv8n with
+60.2\% fewer parameters, although GFLOPs increase from 8.20 to 13.29 because
+D2 is spatially expensive.  Adding DySample then raises precision and recall
+by 1.29 and 2.01 points, respectively, and improves AP$_{50}$/AP$_{50:95}$ by
+2.12/1.60 points over the no-D5 predecessor.  This gain costs 0.091M
+parameters and 2.49 GFLOPs.  The final TAD-YOLO configuration therefore
+reaches 39.30\% AP$_{50}$ and 22.50\% AP$_{50:95}$ with 1.290M parameters.
+
+\begin{table*}[t]
+\caption{Single-seed VisDrone validation ablation.  Each row accumulates the
+explicitly named modification; all accuracy values are percentages.}
+\label{tab:ablation}
+\centering
+\small
+\begin{tabular}{p{7.2cm}rrrrrr}
+\toprule
+Configuration & $P$ & $R$ & AP$_{50}$ & AP$_{50:95}$ & Params (M) & GFLOPs \\
+\midrule
+YOLOv8n & 44.16 & 32.67 & 31.64 & 17.42 & 3.013 & 8.20 \\
+YOLOv8n + P2 & 47.71 & 35.93 & 35.87 & 20.38 & 2.928 & 12.37 \\
+YOLOv8n + P2 + shallow-heavy & 48.20 & 38.53 & 38.22 & 21.74 & 1.633 & 14.23 \\
+YOLOv8n + P2 + shallow-heavy + terminal P2 & 49.04 & 37.37 & 37.64 & 21.43 & 1.634 & 13.64 \\
+YOLOv8n + P2 + shallow-heavy + terminal P2 $-$ D5 & 48.51 & 37.09 & 37.18 & 20.90 & 1.199 & 13.29 \\
+\midrule
+\textbf{YOLOv8n + P2 + shallow-heavy + terminal P2 $-$ D5 + DySample
+(TAD-YOLO)} & \textbf{49.80} & \textbf{39.10} & \textbf{39.30} &
+\textbf{22.50} & \textbf{1.290} & \textbf{15.78} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Discussion}
+P2 provides the largest initial accuracy gain, while shallow-heavy allocation
+further improves AP and reduces parameters.  Terminal P2 saves 0.59 GFLOPs
+with nearly unchanged parameters, and D5 removal saves a further 0.435M
+parameters and 0.35 GFLOPs; both slightly reduce AP.  They therefore represent
+an accuracy--efficiency trade-off rather than accuracy-enhancing modules.
+DySample recovers this loss and exceeds the shallow-heavy configuration by
+1.08 AP$_{50}$ and 0.76
+AP$_{50:95}$, supporting content-aware high-resolution fusion.
+
+The dense D2 head still increases computation and memory, and removing D5 may
+reduce large-object recall.  Moreover, the results cover one split, resolution,
+and seed; they indicate trends rather than statistical superiority.  Future
+evaluation should report three-seed mean and standard deviation, per-scale and
+per-class AP, peak memory, and warmed-up latency on specified hardware.
+
+\section{Conclusion}
+TAD-YOLO adapts UAVDet's shallow-oriented and tiny-focused principles to
+YOLOv8n through shallow-heavy allocation, terminal P2, D5 removal, and two
+DySample transitions.  It reaches 39.30\% AP$_{50}$ and 22.50\%
+AP$_{50:95}$ with 1.290M parameters: gains of 7.66 and 5.08 points over
+YOLOv8n with 57.2\% fewer parameters.  Multi-seed and hardware-level tests are
+required to confirm robustness and deployment efficiency.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

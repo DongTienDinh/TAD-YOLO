@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tad-yolo"
+version = "0.1.0"
+description = "Clean implementation of the F4 terminal-P2 DySample detector"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pyyaml>=6.0,<7",
+    "torch==2.10.0",
+    "torchvision==0.25.0",
+    "ultralytics-opencv-headless==8.4.154",
+]
+
+[tool.setuptools.packages.find]
+include = ["tad_yolo*"]

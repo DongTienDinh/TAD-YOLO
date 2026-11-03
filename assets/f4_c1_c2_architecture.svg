@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="950" viewBox="0 0 1700 950">
+  <title>ACE-Net F4 architecture - C1 plus C2</title>
+  <desc>Paper-ready diagram of F4: shallow-heavy backbone, terminal P2, no D5, DySample at T4-to-T3 and T3-to-T2, and no ACE color-edge branch.</desc>
+
+  <defs>
+    <linearGradient id="bgSemantic" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dff1ff"/>
+    </linearGradient>
+    <linearGradient id="bgNeck" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#fff4c5"/>
+    </linearGradient>
+    <linearGradient id="bgDySample" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d8edff"/>
+    </linearGradient>
+    <linearGradient id="bgHead" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#fff0df"/>
+    </linearGradient>
+    <linearGradient id="bgContribution" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eef7ef"/>
+    </linearGradient>
+
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#263238"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#168ad0"/>
+    </marker>
+
+    <style>
+      .title{font:700 32px Arial,sans-serif;fill:#102a43}
+      .subtitle{font:500 16px Arial,sans-serif;fill:#52667a}
+      .section{font:700 22px Arial,sans-serif;fill:#102a43}
+      .label{font:700 15px Arial,sans-serif;fill:#102a43;text-anchor:middle}
+      .small{font:500 12px Arial,sans-serif;fill:#334e68;text-anchor:middle}
+      .note{font:500 13px Arial,sans-serif;fill:#486581}
+      .box{stroke-width:1.6;rx:7;ry:7}
+      .semanticBox{fill:url(#bgSemantic);stroke:#168ad0}
+      .neckBox{fill:url(#bgNeck);stroke:#c9a227}
+      .dysampleBox{fill:url(#bgDySample);stroke:#168ad0}
+      .headBox{fill:url(#bgHead);stroke:#ef6c00}
+      .contributionBox{fill:url(#bgContribution);stroke:#4c9b5f}
+      .disabledBox{fill:#f7f7f7;stroke:#9aa5b1;stroke-dasharray:5 4}
+      .region{stroke-width:1.5;stroke-dasharray:8 5;rx:10;ry:10}
+      .flow{fill:none;stroke:#263238;stroke-width:2.3;marker-end:url(#arrow)}
+      .skip{fill:none;stroke:#263238;stroke-width:2.0;marker-end:url(#arrow)}
+      .dynamicFlow{fill:none;stroke:#168ad0;stroke-width:2.5;marker-end:url(#arrowBlue)}
+    </style>
+  </defs>
+
+  <rect width="1700" height="950" fill="#ffffff"/>
+  <text x="850" y="38" class="title" text-anchor="middle">ACE-Net F4 Architecture — C1 + C2</text>
+  <text x="850" y="64" class="subtitle" text-anchor="middle">Shallow-heavy backbone • DySample top-down fusion • terminal P2 • no D5 • ACE color–edge branch disabled</text>
+
+  <!-- Contribution summary -->
+  <g id="c1-summary">
+    <rect x="210" y="83" width="390" height="54" class="box contributionBox"/>
+    <text x="405" y="105" class="label"><tspan x="405">C1 Enabled</tspan><tspan x="405" dy="18" class="small">Shallow-Heavy + Terminal P2 + No D5</tspan></text>
+  </g>
+  <g id="c2-summary">
+    <rect x="655" y="83" width="390" height="54" class="box contributionBox"/>
+    <text x="850" y="105" class="label"><tspan x="850">C2 Enabled</tspan><tspan x="850" dy="18" class="small">DySample at T4→T3 and T3→T2</tspan></text>
+  </g>
+  <g id="c3-summary">
+    <rect x="1100" y="83" width="390" height="54" class="box disabledBox"/>
+    <text x="1295" y="105" class="label"><tspan x="1295">C3 Disabled</tspan><tspan x="1295" dy="18" class="small">No color–edge cues, OSCER, or auxiliary loss</tspan></text>
+  </g>
+
+  <!-- RGB input -->
+  <g id="rgb-input">
+    <rect x="20" y="260" width="110" height="100" class="box semanticBox"/>
+    <text x="75" y="293" class="label"><tspan x="75">RGB Input</tspan><tspan x="75" dy="20">Image</tspan><tspan x="75" dy="22" class="small">3 × 640 × 640</tspan></text>
+  </g>
+
+  <!-- Shallow-heavy semantic backbone -->
+  <rect x="150" y="165" width="330" height="665" class="region" stroke="#168ad0" fill="#f7fbff"/>
+  <text x="170" y="198" class="section">Shallow-Heavy Backbone</text>
+  <text x="170" y="220" class="note">Capacity shifted toward high-resolution features</text>
+
+  <g id="stem">
+    <rect x="195" y="260" width="235" height="58" class="box semanticBox"/>
+    <text x="312.5" y="282" class="label"><tspan x="312.5">Semantic Stem</tspan><tspan x="312.5" dy="19" class="small">24 × 320 × 320</tspan></text>
+  </g>
+  <g id="b2">
+    <rect x="195" y="365" width="235" height="62" class="box semanticBox"/>
+    <text x="312.5" y="388" class="label"><tspan x="312.5">Backbone Stage 2 (B2)</tspan><tspan x="312.5" dy="19" class="small">48 × 160 × 160</tspan></text>
+  </g>
+  <g id="b3">
+    <rect x="195" y="485" width="235" height="62" class="box semanticBox"/>
+    <text x="312.5" y="508" class="label"><tspan x="312.5">Backbone Stage 3 (B3)</tspan><tspan x="312.5" dy="19" class="small">64 × 80 × 80</tspan></text>
+  </g>
+  <g id="b4">
+    <rect x="195" y="625" width="235" height="62" class="box semanticBox"/>
+    <text x="312.5" y="648" class="label"><tspan x="312.5">Backbone Stage 4 (B4)</tspan><tspan x="312.5" dy="19" class="small">96 × 40 × 40</tspan></text>
+  </g>
+  <g id="b5">
+    <rect x="195" y="755" width="235" height="68" class="box semanticBox"/>
+    <text x="312.5" y="778" class="label"><tspan x="312.5">Backbone Stage 5 + SPPF</tspan><tspan x="312.5" dy="18">(B5)</tspan><tspan x="312.5" dy="17" class="small">128 × 20 × 20</tspan></text>
+  </g>
+
+  <path d="M130 310 H162 V289 H195" class="flow"/>
+  <path d="M312 318 V365" class="flow"/>
+  <path d="M312 427 V485" class="flow"/>
+  <path d="M312 547 V625" class="flow"/>
+  <path d="M312 687 V755" class="flow"/>
+
+  <!-- Neck -->
+  <rect x="500" y="165" width="835" height="665" class="region" stroke="#4dc36b" fill="#f5fcf5"/>
+  <text x="520" y="198" class="section">Terminal-P2 Multi-Scale Neck</text>
+  <text x="520" y="220" class="note">Nearest B5→T4 • DySample T4→T3 and T3→T2 • bottom-up T3→N4 only</text>
+
+  <!-- P4 top-down -->
+  <g id="nearest-54">
+    <rect x="525" y="755" width="190" height="62" class="box semanticBox"/>
+    <text x="620" y="778" class="label"><tspan x="620">Nearest Upsampling ×2</tspan><tspan x="620" dy="19" class="small">+ skip concatenation</tspan></text>
+  </g>
+  <g id="t4">
+    <rect x="770" y="625" width="235" height="68" class="box neckBox"/>
+    <text x="887.5" y="647" class="label"><tspan x="887.5">P4 Top-Down Fusion (T4)</tspan><tspan x="887.5" dy="18" class="small">C2f[Up(B5), B4]</tspan><tspan x="887.5" dy="17" class="small">96 × 40 × 40</tspan></text>
+  </g>
+  <path d="M430 789 H525" class="flow"/>
+  <path d="M715 786 H745 V659 H770" class="flow"/>
+  <path d="M430 656 H770" class="skip"/>
+
+  <!-- P3 top-down -->
+  <g id="dysample-43">
+    <rect x="770" y="560" width="235" height="46" class="box dysampleBox"/>
+    <text x="887.5" y="579" class="label"><tspan x="887.5">DySample Upsampling ×2</tspan><tspan x="887.5" dy="17" class="small">+ skip concatenation</tspan></text>
+  </g>
+  <g id="t3">
+    <rect x="770" y="485" width="235" height="62" class="box neckBox"/>
+    <text x="887.5" y="508" class="label"><tspan x="887.5">P3 Top-Down Fusion (T3)</tspan><tspan x="887.5" dy="18" class="small">C2f[DyUp(T4), B3]</tspan><tspan x="887.5" dy="16" class="small">64 × 80 × 80</tspan></text>
+  </g>
+  <path d="M887 625 V606" class="dynamicFlow"/>
+  <path d="M887 560 V547" class="dynamicFlow"/>
+  <path d="M430 516 H770" class="skip"/>
+
+  <!-- P2 top-down -->
+  <g id="dysample-32">
+    <rect x="1045" y="440" width="235" height="46" class="box dysampleBox"/>
+    <text x="1162.5" y="459" class="label"><tspan x="1162.5">DySample Upsampling ×2</tspan><tspan x="1162.5" dy="17" class="small">+ skip concatenation</tspan></text>
+  </g>
+  <g id="t2">
+    <rect x="1045" y="350" width="235" height="70" class="box neckBox"/>
+    <text x="1162.5" y="372" class="label"><tspan x="1162.5">P2 Top-Down Feature (T2)</tspan><tspan x="1162.5" dy="18" class="small">C2f[DyUp(T3), B2]</tspan><tspan x="1162.5" dy="17" class="small">48 × 160 × 160</tspan></text>
+  </g>
+  <path d="M1005 516 H1018 V463 H1045" class="dynamicFlow"/>
+  <path d="M1162 440 V420" class="dynamicFlow"/>
+  <path d="M430 396 H980 V385 H1045" class="skip"/>
+
+  <!-- Terminal-P2 annotation -->
+  <g id="terminal-p2-note">
+    <rect x="1045" y="267" width="235" height="55" class="box disabledBox"/>
+    <text x="1162.5" y="288" class="label"><tspan x="1162.5">Terminal P2</tspan><tspan x="1162.5" dy="18" class="small">No T2→N3 bottom-up path</tspan></text>
+  </g>
+
+  <!-- Bottom-up T3 to N4 -->
+  <g id="down34">
+    <rect x="1045" y="545" width="235" height="52" class="box dysampleBox"/>
+    <text x="1162.5" y="566" class="label"><tspan x="1162.5">Downsampling</tspan><tspan x="1162.5" dy="18" class="small">3×3 Conv, stride 2 • 64→96</tspan></text>
+  </g>
+  <g id="n4">
+    <rect x="1045" y="625" width="235" height="70" class="box neckBox"/>
+    <text x="1162.5" y="647" class="label"><tspan x="1162.5">P4 Bottom-Up Fusion (N4)</tspan><tspan x="1162.5" dy="18" class="small">C2f[Down(T3), T4]</tspan><tspan x="1162.5" dy="17" class="small">96 × 40 × 40</tspan></text>
+  </g>
+  <path d="M1005 516 H1162 V545" class="flow"/>
+  <path d="M1162 597 V625" class="flow"/>
+  <path d="M1005 659 H1045" class="skip"/>
+
+  <!-- Detection head -->
+  <rect x="1360" y="165" width="310" height="665" class="region" stroke="#ef6c00" fill="#fff9f3"/>
+  <text x="1380" y="198" class="section">Three-Scale Detection Head</text>
+  <text x="1380" y="220" class="note">Outputs at strides 4, 8, and 16</text>
+
+  <g id="d2">
+    <rect x="1400" y="350" width="230" height="72" class="box headBox"/>
+    <text x="1515" y="372" class="label"><tspan x="1515">P2 Detection Branch (D2)</tspan><tspan x="1515" dy="19" class="small">stride 4 • 48 channels</tspan><tspan x="1515" dy="16" class="small">high-resolution output</tspan></text>
+  </g>
+  <g id="d3">
+    <rect x="1400" y="480" width="230" height="72" class="box headBox"/>
+    <text x="1515" y="502" class="label"><tspan x="1515">P3 Detection Branch (D3)</tspan><tspan x="1515" dy="19" class="small">stride 8 • 64 channels</tspan><tspan x="1515" dy="16" class="small">medium-resolution output</tspan></text>
+  </g>
+  <g id="d4">
+    <rect x="1400" y="625" width="230" height="72" class="box headBox"/>
+    <text x="1515" y="647" class="label"><tspan x="1515">P4 Detection Branch (D4)</tspan><tspan x="1515" dy="19" class="small">stride 16 • 96 channels</tspan><tspan x="1515" dy="16" class="small">context-rich output</tspan></text>
+  </g>
+  <g id="no-d5">
+    <rect x="1400" y="755" width="230" height="56" class="box disabledBox"/>
+    <text x="1515" y="777" class="label"><tspan x="1515">No N5 / No D5</tspan><tspan x="1515" dy="18" class="small">stride-32 head removed</tspan></text>
+  </g>
+
+  <path d="M1280 385 H1400" class="flow"/>
+  <path d="M1005 516 H1400" class="flow"/>
+  <path d="M1280 660 H1400" class="flow"/>
+
+  <!-- Legend -->
+  <rect x="150" y="860" width="1520" height="62" rx="8" fill="#f7f9fc" stroke="#bcccdc"/>
+  <path d="M185 891 H240" class="flow"/><text x="255" y="896" class="note">standard feature flow</text>
+  <path d="M470 891 H525" class="dynamicFlow"/><text x="540" y="896" class="note">DySample top-down flow</text>
+  <text x="805" y="896" class="note"><tspan font-weight="700">C1:</tspan> shallow-heavy + terminal P2 + no D5</text>
+  <text x="1190" y="896" class="note"><tspan font-weight="700">C2:</tspan> DySample at two top-down transitions</text>
+</svg>

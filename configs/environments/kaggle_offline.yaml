@@ -1,0 +1,28 @@
+environment: kaggle
+internet: false
+python: "3.12"
+
+expected_versions:
+  torch: "2.10.0"
+  torchvision: "0.25.0"
+  ultralytics: "8.4.154"
+  pyyaml: "6.0.3"
+
+inputs:
+  source_bundle: gen-full.py
+  python_runtime: cpython-312.tar.gz
+  wheelhouse: wheelhouse.zip
+  offline_assets:
+    accepted_names: [tad-yolo-offline-assets, ace-net-offline-assets]
+    required_files:
+      - fonts/Arial.ttf
+      - weights/yolo26n.pt
+  dataset:
+    accepted_names: [visdrone_det_yolo, visdrone-yolo, visdrone]
+
+working:
+  source: /kaggle/working/TAD-YOLO
+  python: /kaggle/working/tad-python-3.12
+  runs: /kaggle/working/runs/tad-yolo
+  yolo_config: /kaggle/working/.config
+  matplotlib: /kaggle/working/.matplotlib

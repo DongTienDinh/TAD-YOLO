@@ -1,0 +1,80 @@
+schema_version: 1
+
+project:
+  name: TAD-YOLO
+  architecture: F4
+  description: Shallow-heavy YOLOv8n with terminal P2 and DySample top-down fusion
+
+model:
+  num_classes: 10
+  input_channels: 3
+  input_size: 640
+
+  # Semantic backbone: Stem, B2, B3, B4, B5+SPPF
+  stem_channels: 24
+  backbone_channels: [48, 64, 96, 128]
+  c2f_repeats: [1, 2, 2, 1]
+  c2f_expansion: 0.5
+  sppf_kernel: 5
+
+  # Neck outputs: T2, T3, N4 -> D2, D3, D4
+  neck_channels: [48, 64, 96]
+  detection_strides: [4, 8, 16]
+  terminal_p2: true
+  has_d5: false
+
+  # B5->T4 remains nearest. DySample is used only at T4->T3 and T3->T2.
+  dysample:
+    scale: 2
+    style: lp
+    groups: 4
+    dyscope: false
+    offset_scale: 0.25
+    offset_init_std: 0.001
+    sample_fp32: true
+    sample_mode: bilinear
+    padding_mode: border
+    align_corners: false
+
+  bn_eps: 0.001
+  bn_momentum: 0.03
+
+train:
+  epochs: 150
+  batch: 16
+  nbs: 64
+  optimizer: MuSGD
+  lr0: 0.01
+  lrf: 0.01
+  momentum: 0.90
+  weight_decay: 0.0005
+  warmup_epochs: 3.0
+  warmup_momentum: 0.80
+  warmup_bias_lr: 0.0
+  box: 7.5
+  cls: 0.5
+  dfl: 1.5
+  close_mosaic: 10
+  hsv_h: 0.015
+  hsv_s: 0.70
+  hsv_v: 0.40
+  degrees: 0.0
+  translate: 0.10
+  scale: 0.50
+  shear: 0.0
+  perspective: 0.0
+  flipud: 0.0
+  fliplr: 0.50
+  mosaic: 1.0
+  mixup: 0.0
+  copy_paste: 0.0
+
+runtime:
+  device: "0"
+  precision: bf16
+  workers: 8
+  seed: 0
+  deterministic: true
+  compile: false
+  allow_tf32: false
+  cudnn_benchmark: false
