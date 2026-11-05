@@ -16,6 +16,7 @@ from tad_yolo.offline import (
     validate_dataset_split,
     validate_dataset_yaml,
 )
+from scripts.evaluate_ablation import find_new_run_directory, maximum_objects_per_image
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -138,6 +139,20 @@ class ArchitectureContractTests(unittest.TestCase):
             self.assertEqual(
                 find_ablation_checkpoint("a4_no_d5", input_root=root),
                 checkpoint.resolve(),
+            )
+            self.assertEqual(
+                maximum_objects_per_image(root / "VisDrone2019-DET-test-dev/labels"),
+                1,
+            )
+
+            project = root / "runs"
+            project.mkdir()
+            before = set()
+            created = project / "a4_no_d5_test"
+            created.mkdir()
+            self.assertEqual(
+                find_new_run_directory(project, "a4_no_d5_test", before),
+                created.resolve(),
             )
 
 

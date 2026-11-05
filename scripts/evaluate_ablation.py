@@ -52,6 +52,32 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def maximum_objects_per_image(labels_dir: str | Path) -> int:
+    """Return the largest number of non-empty YOLO rows in one label file."""
+    maximum = 0
+    for label in Path(labels_dir).rglob("*.txt"):
+        with label.open("r", encoding="utf-8") as stream:
+            maximum = max(maximum, sum(bool(line.strip()) for line in stream))
+    return maximum
+
+
+def find_new_run_directory(project: Path, name: str, before: set[Path]) -> Path:
+    """Locate the output directory created by an Ultralytics validation call."""
+    candidates = [
+        path.resolve()
+        for path in project.glob(f"{name}*")
+        if path.is_dir() and path.resolve() not in before
+    ]
+    if len(candidates) == 1:
+        return candidates[0]
+    if candidates:
+        return max(candidates, key=lambda path: path.stat().st_mtime_ns)
+    existing = [path.resolve() for path in project.glob(f"{name}*") if path.is_dir()]
+    if existing:
+        return max(existing, key=lambda path: path.stat().st_mtime_ns)
+    raise RuntimeError(f"Ultralytics created no output directory under {project} for {name!r}")
+
+
 def main() -> None:
     args = parse_args()
     configure_offline_environment()
@@ -73,6 +99,11 @@ def main() -> None:
         )
 
     run_name = args.name or f"{args.variant}_{args.split}"
+    project = args.project.resolve()
+    project.mkdir(parents=True, exist_ok=True)
+    before = {path.resolve() for path in project.glob(f"{run_name}*") if path.is_dir()}
+    observed_max_objects = maximum_objects_per_image(split_info["labels"])
+    effective_max_det = max(args.max_det, observed_max_objects)
     metrics = model.val(
         data=str(dataset_yaml),
         split=args.split,
@@ -80,18 +111,18 @@ def main() -> None:
         imgsz=args.imgsz,
         batch=args.batch,
         workers=args.workers,
-        half=args.device != "cpu",
+        quantize=16 if args.device != "cpu" else None,
         conf=0.001,
         iou=0.7,
-        max_det=args.max_det,
+        max_det=effective_max_det,
         plots=not args.no_plots,
         save_json=False,
-        project=str(args.project.resolve()),
+        project=str(project),
         name=run_name,
         exist_ok=False,
         verbose=True,
     )
-    save_dir = Path(model.validator.save_dir)
+    save_dir = find_new_run_directory(project, run_name, before)
     results = {
         key: float(value)
         for key, value in getattr(metrics, "results_dict", {}).items()
@@ -115,7 +146,10 @@ def main() -> None:
         "device": args.device,
         "conf": 0.001,
         "iou": 0.7,
-        "max_det": args.max_det,
+        "requested_max_det": args.max_det,
+        "observed_max_objects_per_image": observed_max_objects,
+        "max_det": effective_max_det,
+        "precision": "fp16" if args.device != "cpu" else "fp32",
         "metrics": results,
         "speed_ms_per_image": speed,
         "save_dir": str(save_dir),

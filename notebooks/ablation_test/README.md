@@ -10,9 +10,11 @@ For each notebook, enable one T4 with Internet On and attach two Kaggle Inputs:
 
 The notebook discovers one matching `best.pt` under `/kaggle/input`, verifies
 its parameter/stride contract, requires labels for the `test` split, and runs
-one evaluation with `imgsz=640`, `batch=8`, FP16, `conf=0.001`, `iou=0.7`, and
-`max_det=300`. If several matching checkpoints are attached, set `CHECKPOINT`
-in the first code cell to the intended absolute path.
+one evaluation with `imgsz=640`, `batch=8`, FP16, `conf=0.001`, and `iou=0.7`.
+`max_det` starts at 300 and is raised to the largest ground-truth count in one
+test image when necessary, preventing an artificial recall cap. If several
+matching checkpoints are attached, set `CHECKPOINT` in the first code cell to
+the intended absolute path.
 
 Run the notebook corresponding to each trained model:
 
