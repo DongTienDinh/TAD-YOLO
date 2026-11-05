@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import re
 import shutil
 from typing import Any
 
@@ -177,6 +178,86 @@ def validate_dataset_yaml(path: str | Path, *, expected_classes: int = 10) -> di
             raise FileNotFoundError(f"Dataset {split} path does not exist: {split_path}")
         resolved[split] = str(split_path)
     return resolved
+
+
+def validate_dataset_split(
+    path: str | Path,
+    split: str,
+    *,
+    expected_classes: int = 10,
+    require_labels: bool = False,
+) -> dict[str, Any]:
+    """Resolve one dataset split and optionally require YOLO label files."""
+    if split not in {"train", "val", "test"}:
+        raise ValueError(f"Unsupported dataset split: {split!r}")
+    resolved = validate_dataset_yaml(path, expected_classes=expected_classes)
+    yaml_path = Path(resolved["yaml"])
+    data = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
+    value = data.get(split)
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"Dataset YAML is missing {split!r}")
+    image_path = Path(value).expanduser()
+    if not image_path.is_absolute():
+        image_path = Path(resolved["root"]) / image_path
+    image_path = image_path.resolve()
+    if not image_path.is_dir():
+        raise FileNotFoundError(f"Dataset {split} image directory does not exist: {image_path}")
+
+    parts = list(image_path.parts)
+    labels_path: Path | None = None
+    for index in range(len(parts) - 1, -1, -1):
+        if parts[index].lower() == "images":
+            parts[index] = "labels"
+            labels_path = Path(*parts)
+            break
+    if require_labels:
+        if labels_path is None or not labels_path.is_dir():
+            raise FileNotFoundError(
+                f"Dataset {split} labels directory does not exist for {image_path}"
+            )
+        if next(labels_path.rglob("*.txt"), None) is None:
+            raise FileNotFoundError(f"Dataset {split} contains no YOLO label files: {labels_path}")
+    return {
+        **resolved,
+        "split": split,
+        "images": str(image_path),
+        "labels": str(labels_path.resolve()) if labels_path and labels_path.exists() else None,
+    }
+
+
+def find_ablation_checkpoint(
+    variant: str,
+    *,
+    input_root: str | Path = "/kaggle/input",
+    filename: str = "best.pt",
+) -> Path:
+    """Find one variant checkpoint without walking mounted image/label trees."""
+    root = Path(input_root).expanduser().resolve()
+    if not root.is_dir():
+        raise FileNotFoundError(f"Checkpoint input root does not exist: {root}")
+    candidates: list[Path] = []
+    ignored = {"images", "labels", "annotations", "__pycache__", ".git"}
+    for directory, subdirs, files in os.walk(root):
+        subdirs[:] = [name for name in subdirs if name.lower() not in ignored]
+        if filename in files:
+            candidates.append((Path(directory) / filename).resolve())
+
+    normalized_variant = re.sub(r"[^a-z0-9]", "", variant.lower())
+    matches = [
+        path
+        for path in candidates
+        if normalized_variant in re.sub(r"[^a-z0-9]", "", str(path).lower())
+    ]
+    if len(matches) == 1:
+        return matches[0]
+    if not matches and len(candidates) == 1:
+        return candidates[0]
+    shown = matches or candidates
+    details = "\n".join(f"  - {path}" for path in shown) or "  (none)"
+    raise RuntimeError(
+        f"Expected exactly one {filename} for {variant!r}, found {len(matches)} matching "
+        f"and {len(candidates)} total. Set CHECKPOINT explicitly in the notebook.\n{details}"
+    )
 
 
 def resolve_visdrone_dataset(explicit_yaml: str | Path | None = None) -> Path:

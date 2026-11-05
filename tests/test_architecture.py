@@ -11,7 +11,11 @@ import yaml
 from tad_yolo.config import _validate_architecture_contract, load_config
 from tad_yolo.models.detector import TADYOLODetector
 from tad_yolo.nn.upsampling import DySample
-from tad_yolo.offline import validate_dataset_yaml
+from tad_yolo.offline import (
+    find_ablation_checkpoint,
+    validate_dataset_split,
+    validate_dataset_yaml,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -97,6 +101,44 @@ class ArchitectureContractTests(unittest.TestCase):
             )
             resolved = validate_dataset_yaml(dataset_yaml)
             self.assertEqual(Path(resolved["root"]), root.resolve())
+
+    def test_labeled_test_split_and_checkpoint_discovery(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for directory in (
+                "VisDrone2019-DET-train/images",
+                "VisDrone2019-DET-val/images",
+                "VisDrone2019-DET-test-dev/images",
+                "VisDrone2019-DET-test-dev/labels",
+            ):
+                (root / directory).mkdir(parents=True)
+            (root / "VisDrone2019-DET-test-dev/labels/000001.txt").write_text(
+                "0 0.5 0.5 0.1 0.1\n", encoding="utf-8"
+            )
+            dataset_yaml = root / "visdrone.yaml"
+            dataset_yaml.write_text(
+                yaml.safe_dump(
+                    {
+                        "path": str(root),
+                        "train": "VisDrone2019-DET-train/images",
+                        "val": "VisDrone2019-DET-val/images",
+                        "test": "VisDrone2019-DET-test-dev/images",
+                        "names": {index: str(index) for index in range(10)},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            split = validate_dataset_split(dataset_yaml, "test", require_labels=True)
+            self.assertEqual(Path(split["images"]), (root / "VisDrone2019-DET-test-dev/images").resolve())
+            self.assertEqual(Path(split["labels"]), (root / "VisDrone2019-DET-test-dev/labels").resolve())
+
+            checkpoint = root / "a4_no_d5_seed0/weights/best.pt"
+            checkpoint.parent.mkdir(parents=True)
+            checkpoint.touch()
+            self.assertEqual(
+                find_ablation_checkpoint("a4_no_d5", input_root=root),
+                checkpoint.resolve(),
+            )
 
 
 if __name__ == "__main__":

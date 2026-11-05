@@ -137,6 +137,12 @@ python scripts/train_ablation.py \
 Available keys and graph contracts are documented in
 [`configs/ablations/README.md`](configs/ablations/README.md).
 
+After training, use the six evaluation-only notebooks in
+[`notebooks/ablation_test/`](notebooks/ablation_test/README.md). Attach the
+labeled VisDrone dataset and the matching training notebook output; the test
+notebook reuses `best.pt`, verifies the architecture contract, and evaluates
+the held-out test split without retraining.
+
 ## Offline Kaggle workflow
 
 The pinned environment contract is
